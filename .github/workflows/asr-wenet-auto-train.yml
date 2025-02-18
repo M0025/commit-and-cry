@@ -29,16 +29,6 @@ jobs:
           # compare changes between main branch and current branch
           git diff HEAD^ -- projects/asr-wenet/conf/config.yaml > changes.diff
 
-          # Debugging outputs
-          echo "--- Debug: Current Directory ---"
-          pwd
-          echo "--- Debug: List files ---"
-          ls -la
-          echo "--- Debug: List .github/scripts/ ---"
-          ls -la .github/scripts/ || echo ".github/scripts/ does not exist"
-          echo "--- Debug: changes.diff Content ---"
-          cat changes.diff
-
           # use python script to analyze changes
           UPDATE=$(python .github/scripts/analyze_changes.py changes.diff 2>&1)
           echo "Update: $UPDATE"
@@ -51,7 +41,7 @@ jobs:
 
       - name: Set up AWS
         if: steps.detect_changes.outputs.should_continue == 'true'
-        uses: actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
