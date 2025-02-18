@@ -1,0 +1,173 @@
+model_version: 2.1.10
+deploy_env: dev
+evaluation_image_arn: null
+training_strategy: finetuning
+pretrained_run_id: ed48f32c44434ad5887ebcfc9c895488
+freeze_modules: null
+cv_patience: 3
+cv_check_frequency: 15
+
+mlflow:
+  server: https://dbc-6b5f1e3e-d035.cloud.databricks.com/
+  experiment_name: experiment
+  token_lifetime_seconds: 1814400  # 21 days
+  run_name: null
+  description: null
+
+data_sources:
+  indomain_train:
+    rev: asr-ctm-v120.0
+    repo: https://git-codecommit.ap-northeast-1.amazonaws.com/v1/repos/dataset
+    s3_bucket: amptalk-dvc
+    repo_path: data/train
+  indomain_dev1:
+    rev: ${data_sources.indomain_train.rev}
+    repo: ${data_sources.indomain_train.repo}
+    s3_bucket: ${data_sources.indomain_train.s3_bucket}
+    repo_path: data/dev/dev1
+  indomain_dev2:
+    rev: ${data_sources.indomain_train.rev}
+    repo: ${data_sources.indomain_train.repo}
+    s3_bucket: ${data_sources.indomain_train.s3_bucket}
+    repo_path: data/dev/dev2
+  yodas:
+    rev: asr-yodas-v8.0
+    repo: ${data_sources.indomain_train.repo}
+    s3_bucket: ${data_sources.indomain_train.s3_bucket}
+    repo_path: data
+  reading:
+    rev: asr-reading-json-v6.0
+    repo: ${data_sources.indomain_train.repo}
+    s3_bucket: ${data_sources.indomain_train.s3_bucket}
+    repo_path: data
+
+indomain_train_create:
+  is_segment_stacking: true
+  segment_stacking_max_silence_duration: 2.0
+  segment_stacking_mu: 8.0
+  segment_stacking_sigma: 4.0
+  segment_stacking_lower: 4.0
+  segment_stacking_upper: 12.0
+  is_stack_overlapping: false
+  stack_overlapping_shift_ratio: 0.3
+
+reading_train_create:
+  loss_threshold: 0.5
+
+paths:
+  pretrained_ckpt: /tmp/pretrained_ckpt/
+  wenet_recipe_root: wenet/examples/csj/s0
+  train_data_list: wenet/examples/csj/s0/data/train.list
+  valid_data_list: wenet/examples/csj/s0/data/dev.list
+  dev2_data_list: wenet/examples/csj/s0/data/dev2.list
+  dev2_data_text: wenet/examples/csj/s0/data/dev2.text
+  wenet_config: wenet/examples/csj/s0/conf/config.yaml
+  wenet_poc: wenet/examples/csj/s0/exp/poc
+  wenet_final_zip: wenet/examples/csj/s0/exp/poc/final.zip
+  wenet_dict: wenet/examples/csj/s0/data/uni_units.txt
+
+wenet:
+  # network architecture
+  # encoder related
+  encoder: hira_ctc_conformer
+  encoder_conf:
+    output_size: 256    # dimension of attention
+    attention_heads: 4
+    linear_units: 2048  # the number of units of position-wise feed forward
+    num_blocks: 12      # the number of encoder blocks
+    dropout_rate: 0.1
+    positional_dropout_rate: 0.1
+    attention_dropout_rate: 0.0
+    input_layer: conv2d # encoder input type, you can chose conv2d, conv2d6 and conv2d8
+    normalize_before: true
+    cnn_module_kernel: 15
+    use_cnn_module: True
+    activation_type: 'swish'
+    pos_enc_layer_type: 'rel_pos'
+    selfattention_layer_type: 'rel_selfattn'
+
+  # decoder related
+  decoder: transformer
+  decoder_conf:
+    attention_heads: 4
+    linear_units: 2048
+    num_blocks: 6
+    dropout_rate: 0.1
+    positional_dropout_rate: 0.1
+    self_attention_dropout_rate: 0.0
+    src_attention_dropout_rate: 0.0
+
+  tokenizer: char
+  tokenizer_conf:
+    symbol_table_path: 'data/uni_units.txt'
+    hira_table_path: 'data/hira_units.txt'
+    split_with_space: false
+    bpe_path: null
+    non_lang_syms_path: null
+    is_multilingual: false
+    num_languages: 1
+    special_tokens:
+      <blank>: 0
+      <unk>: 1
+
+  ctc: ctc
+  ctc_conf:
+    ctc_blank_id: 0
+    hira_ctc_layer_id: 5 # 0-11; thus 5 means layer 6, 2 means layer 3
+
+
+  model: asr_w_hira
+
+  # hybrid CTC/attention
+  model_conf:
+    ctc_weight: 0.3
+    hira_ctc_weight: 0.2
+    lsm_weight: 0.1     # label smoothing option
+    length_normalized_loss: false
+
+  # dataset related
+  dataset_conf:
+    filter_conf:
+      max_length: 3000
+      min_length: 50
+      token_max_length: 400
+      token_min_length: 1
+      min_output_input_ratio: 0.01
+      max_output_input_ratio: 10.0
+    resample_conf:
+      resample_rate: 16000
+    speed_perturb: true
+    volume_modify: true
+    miu_law: true
+    fbank_conf:
+      num_mel_bins: 80
+      frame_shift: 10
+      frame_length: 25
+      dither: 0.0
+    spec_aug: true
+    spec_aug_conf:
+      num_t_mask: 2
+      num_f_mask: 2
+      max_t: 50
+      max_f: 10
+    shuffle: true
+    shuffle_conf:
+      shuffle_size: 1500
+    sort: true
+    sort_conf:
+      sort_size: 500  # sort_size should be less than shuffle_size
+    batch_conf:
+      batch_type: 'static' # static or dynamic
+      batch_size: 12
+
+  grad_clip: 5
+  accum_grad: 8
+  max_epoch: 20
+  log_interval: 100
+
+  optim: adam
+  optim_conf:
+    lr: 0.0008
+  scheduler: warmuplr     # pytorch v1.1.0+ required
+  scheduler_conf:
+    warmup_steps: 11000
