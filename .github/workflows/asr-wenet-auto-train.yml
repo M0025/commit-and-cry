@@ -26,17 +26,16 @@ jobs:
       - name: Check for changes in config file
         id: detect_changes
         run: |
-          # compare changes between main branch and current branch
           git diff HEAD^ -- projects/asr-wenet/conf/config.yaml > changes.diff
-
-          # use python script to analyze changes
-          UPDATE=$(python .github/scripts/analyze_changes.py changes.diff 2>&1)
-          echo "Update: $UPDATE"
           
-          if [ "$UPDATE" != "True" ]; then
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-          else
+          echo "Checking config file changes:"
+          UPDATE=$(python .github/scripts/analyze_changes.py changes.diff 2>&1)
+          echo "Analysis result: $UPDATE"
+          
+          if [[ "$UPDATE" == *"True"* ]]; then
             echo "should_continue=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_continue=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Set up AWS
