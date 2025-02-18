@@ -26,7 +26,20 @@ jobs:
       - name: Check for changes in config file
         id: detect_changes
         run: |
-          git diff main -- projects/asr-wenet/conf/config.yaml > changes.diff
+          # compare changes between main branch and current branch
+          git diff HEAD^ -- projects/asr-wenet/conf/config.yaml > changes.diff
+
+          # Debugging outputs
+          echo "--- Debug: Current Directory ---"
+          pwd
+          echo "--- Debug: List files ---"
+          ls -la
+          echo "--- Debug: List .github/scripts/ ---"
+          ls -la .github/scripts/ || echo ".github/scripts/ does not exist"
+          echo "--- Debug: changes.diff Content ---"
+          cat changes.diff
+
+          # use python script to analyze changes
           UPDATE=$(python .github/scripts/analyze_changes.py changes.diff 2>&1)
           echo "Update: $UPDATE"
           
