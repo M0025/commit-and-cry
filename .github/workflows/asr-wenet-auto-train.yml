@@ -27,7 +27,7 @@ jobs:
         id: detect_changes
         run: |
           # compare changes between main branch and current branch
-          git diff main -- projects/asr-wenet/conf/config.yaml > changes.diff
+          git diff HEAD^ -- projects/asr-wenet/conf/config.yaml > changes.diff
 
           # Debugging outputs
           echo "--- Debug: Current Directory ---"
