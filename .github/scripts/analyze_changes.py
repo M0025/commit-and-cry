@@ -1,10 +1,9 @@
-
 """
-モデルを更新するかどうか:
-モデルバージョンのみが変更された場合:
-    バージョンが上がった場合: TRUE を返す
-    バージョンが下がった場合: FALSE を返す
-その他の変更がある場合: TRUE を返す
+Determine whether to update the model:
+If only the model version has changed:
+    If version increased: Return TRUE
+    If version decreased: Return FALSE
+If other changes exist: Return TRUE
 """
 
 import argparse
@@ -34,6 +33,7 @@ def main():
     changes = parse_diff_file(diff_file_path)
 
     if not changes:
+        print("No changes detected")
         return False
 
     old_version = None
@@ -50,10 +50,13 @@ def main():
 
     if only_model_version_changed:
         if old_version and new_version:
+            print(f"Version change: {old_version} -> {new_version}")
             return compare_versions(old_version, new_version)
         else:
+            print("Incomplete version information")
             return False
     else:
+        print("Other changes detected in config file")
         return True
 
 if __name__ == "__main__":
