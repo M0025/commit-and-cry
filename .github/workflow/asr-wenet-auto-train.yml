@@ -1,0 +1,59 @@
+name: asr-wenet auto Training 
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'projects/asr-wenet/conf/config.yaml'
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: read
+
+jobs:
+  trian:
+    name: Auto Train Wenet Model
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
+
+      - name: Check for changes in config file
+        id: detect_changes
+        run: |
+          # compare changes between main branch and current branch
+          git diff main -- projects/asr-wenet/conf/config.yaml > changes.diff
+
+          # use python script to analyze changes
+          UPDATE=$(python .github/scripts/analyze_changes.py changes.diff)
+          echo "Update: $UPDATE"
+
+          if [ "$UPDATE" != "True" ]; then
+            echo "No update. Stopping further execution..."
+            exit 0  # set exit code to 0 to indicate success
+          fi
+
+
+      - name: Set up AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Configure Git
+        run: |
+          git config --global credential.helper '!aws codecommit credential-helper $@'
+          git config --global credential.UseHttpPath true
+
+      - name: Push to AWS CodeCommit
+        run: |
+          git remote add codecommit https://git-codecommit.ap-northeast-1.amazonaws.com/v1/repos/amptalk-ml
+          git push codecommit HEAD:refs/heads/main
+      
+      # TODO: codebuild job
