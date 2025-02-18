@@ -26,32 +26,32 @@ jobs:
       - name: Check for changes in config file
         id: detect_changes
         run: |
-          # compare changes between main branch and current branch
           git diff main -- projects/asr-wenet/conf/config.yaml > changes.diff
-
-          # use python script to analyze changes
-          UPDATE=$(python .github/scripts/analyze_changes.py changes.diff)
+          UPDATE=$(python .github/scripts/analyze_changes.py changes.diff 2>&1)
           echo "Update: $UPDATE"
-
+          
           if [ "$UPDATE" != "True" ]; then
-            echo "No update. Stopping further execution..."
-            exit 0  # set exit code to 0 to indicate success
+            echo "should_continue=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_continue=true" >> $GITHUB_OUTPUT
           fi
 
-
       - name: Set up AWS
-        uses: aws-actions/configure-aws-credentials@v4
+        if: steps.detect_changes.outputs.should_continue == 'true'
+        uses: actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
 
       - name: Configure Git
+        if: steps.detect_changes.outputs.should_continue == 'true'
         run: |
           git config --global credential.helper '!aws codecommit credential-helper $@'
           git config --global credential.UseHttpPath true
 
       - name: Push to AWS CodeCommit
+        if: steps.detect_changes.outputs.should_continue == 'true'
         run: |
           git remote add codecommit https://git-codecommit.ap-northeast-1.amazonaws.com/v1/repos/amptalk-ml
           git push codecommit HEAD:refs/heads/main
