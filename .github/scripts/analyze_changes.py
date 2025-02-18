@@ -58,4 +58,4 @@ def main():
 
 if __name__ == "__main__":
     result = main()
-    exit(0 if result else 1)
+    print(result)
